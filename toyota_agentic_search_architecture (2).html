@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Toyota Agentic Search — System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F5F7;
+    --canvas: #FFFFFF;
+    --ink: #0F172A;
+    --ink-soft: #334155;
+    --muted: #64748B;
+    --hairline: #E2E8F0;
+    --hairline-soft: #EEF1F5;
+    --toyota: #EB0A1E;
+    --aws: #FF9900;
+    --aws-dark: #232F3E;
+    --snowflake: #29B5E8;
+    --shopper: #475569;
+    --conv: #00A862;
+    --conv-soft: #DCFCE7;
+    --conv-ink: #14532D;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 36px 24px 56px;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1520px;
+    margin: 0 auto;
+  }
+  header {
+    margin: 0 4px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 6px 0 0;
+    max-width: 640px;
+  }
+  .meta {
+    display: flex;
+    gap: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .meta span strong { color: var(--ink); font-weight: 600; }
+  .canvas-wrap {
+    background: var(--canvas);
+    border-radius: 14px;
+    border: 1px solid var(--hairline);
+    padding: 6px;
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 12px 40px -12px rgba(15, 23, 42, 0.10);
+    overflow: hidden;
+  }
+  svg { display: block; width: 100%; height: auto; }
+
+  .footer-grid {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .panel {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--ink);
+  }
+  .panel.handoff { border-left-color: var(--conv); }
+  .panel.aws-panel { border-left-color: var(--aws); }
+  .panel.data-panel { border-left-color: var(--snowflake); }
+  .panel.reuse-panel { border-left-color: var(--toyota); }
+  .panel-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .panel-content {
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .panel-content code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    background: #F1F5F9;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+    word-break: break-all;
+  }
+  @media (max-width: 1100px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px)  { .footer-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <p class="eyebrow">System Architecture · 50,000 ft</p>
+        <h1>Toyota Agentic Search</h1>
+        <p class="subtitle">Conversational vehicle discovery on toyota.com — Bedrock supervisor orchestrating 5 specialist agents, grounded in Snowflake Cortex (SQL + RAG), converting via SmartPath.</p>
+      </div>
+      <div class="meta">
+        <span><strong>v0.1</strong> · MOCK</span>
+        <span>OWNER · <strong>RISK / DATA TECH</strong></span>
+      </div>
+    </header>
+
+    <div class="canvas-wrap">
+      <svg viewBox="0 0 1500 1280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Toyota Agentic Search architecture diagram">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+          </marker>
+          <marker id="arrowConv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#00A862"/>
+          </marker>
+          <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="130%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.07"/>
+          </filter>
+          <pattern id="dotGrid" patternUnits="userSpaceOnUse" width="20" height="20">
+            <circle cx="1" cy="1" r="0.6" fill="#E2E8F0"/>
+          </pattern>
+        </defs>
+
+        <!-- Subtle dot grid background -->
+        <rect x="0" y="0" width="1500" height="1280" fill="url(#dotGrid)" opacity="0.6"/>
+
+        <!-- ============ SWIM LANES ============ -->
+        <!-- Lane 1: SHOPPER -->
+        <rect x="40" y="40" width="200" height="1200" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <rect x="40" y="40" width="200" height="56" fill="#475569"/>
+        <text x="140" y="74" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600" letter-spacing="0.14em" font-family="IBM Plex Sans">SHOPPER</text>
+
+        <!-- Lane 2: TOYOTA.COM -->
+        <rect x="240" y="40" width="280" height="1200" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <rect x="240" y="40" width="280" height="56" fill="#EB0A1E"/>
+        <text x="380" y="74" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600" letter-spacing="0.14em" font-family="IBM Plex Sans">TOYOTA.COM</text>
+
+        <!-- Lane 3: AWS ORCHESTRATION -->
+        <rect x="520" y="40" width="420" height="1200" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <rect x="520" y="40" width="420" height="56" fill="#232F3E"/>
+        <text x="730" y="74" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600" letter-spacing="0.14em" font-family="IBM Plex Sans">AWS ORCHESTRATION</text>
+        <text x="922" y="74" text-anchor="end" fill="#FF9900" font-size="11" font-weight="700" letter-spacing="0.05em" font-family="IBM Plex Mono">aws</text>
+
+        <!-- Lane 4: DATA -->
+        <rect x="940" y="40" width="280" height="1200" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <rect x="940" y="40" width="280" height="56" fill="#0F172A"/>
+        <text x="1080" y="74" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600" letter-spacing="0.14em" font-family="IBM Plex Sans">DATA</text>
+
+        <!-- Lane 5: SMARTPATH -->
+        <rect x="1220" y="40" width="240" height="1200" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <rect x="1220" y="40" width="240" height="56" fill="#00A862"/>
+        <text x="1340" y="74" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600" letter-spacing="0.14em" font-family="IBM Plex Sans">SMARTPATH</text>
+
+        <!-- ============ COMPONENTS ============ -->
+
+        <!-- C1: toyota.com /search-inventory -->
+        <g filter="url(#cardShadow)">
+          <rect x="280" y="130" width="200" height="92" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="280" y="130" width="200" height="4" fill="#EB0A1E" rx="2"/>
+          <text x="380" y="167" text-anchor="middle" fill="#0F172A" font-size="14" font-weight="600" font-family="IBM Plex Sans">toyota.com</text>
+          <text x="380" y="190" text-anchor="middle" fill="#64748B" font-size="12" font-family="IBM Plex Mono">/search-inventory</text>
+          <text x="380" y="210" text-anchor="middle" fill="#94A3B8" font-size="9.5" letter-spacing="0.14em" font-family="IBM Plex Mono">ENTRY POINT</text>
+        </g>
+
+        <!-- C2: Shopper -->
+        <g filter="url(#cardShadow)">
+          <rect x="60" y="290" width="160" height="100" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="60" y="290" width="160" height="4" fill="#475569" rx="2"/>
+          <circle cx="140" cy="328" r="11" fill="none" stroke="#475569" stroke-width="1.8"/>
+          <path d="M122,358 Q140,342 158,358" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round"/>
+          <text x="140" y="380" text-anchor="middle" fill="#0F172A" font-size="14" font-weight="600" font-family="IBM Plex Sans">Shopper</text>
+        </g>
+
+        <!-- C3: Agentic Search Widget -->
+        <g filter="url(#cardShadow)">
+          <rect x="280" y="280" width="200" height="120" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="280" y="280" width="200" height="4" fill="#EB0A1E" rx="2"/>
+          <text x="380" y="312" text-anchor="middle" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Agentic Search Widget</text>
+          <line x1="298" y1="324" x2="462" y2="324" stroke="#EEF1F5"/>
+          <text x="380" y="350" text-anchor="middle" fill="#475569" font-size="11.5" font-family="IBM Plex Sans">Chat + Guided Intake</text>
+          <text x="380" y="368" text-anchor="middle" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">streamed turns · structured forms</text>
+          <text x="380" y="388" text-anchor="middle" fill="#94A3B8" font-size="9.5" letter-spacing="0.14em" font-family="IBM Plex Mono">EMBEDDED UI</text>
+        </g>
+
+        <!-- C4: Toyota Auth -->
+        <g filter="url(#cardShadow)">
+          <rect x="280" y="460" width="200" height="100" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="280" y="460" width="200" height="4" fill="#EB0A1E" rx="2"/>
+          <text x="380" y="492" text-anchor="middle" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Toyota Auth</text>
+          <text x="380" y="514" text-anchor="middle" fill="#475569" font-size="11.5" font-family="IBM Plex Sans">Guest / Profile resolution</text>
+          <text x="380" y="544" text-anchor="middle" fill="#94A3B8" font-size="9.5" letter-spacing="0.14em" font-family="IBM Plex Mono">REUSED · NOT REPLACED</text>
+        </g>
+
+        <!-- C5: Bedrock Agent (container) -->
+        <g filter="url(#cardShadow)">
+          <rect x="540" y="220" width="380" height="380" rx="8" fill="#FFFFFF" stroke="#FF9900" stroke-width="1.8" stroke-dasharray="5 3"/>
+          <rect x="540" y="220" width="380" height="40" rx="8" fill="#FFF7EB"/>
+          <rect x="540" y="252" width="380" height="8" fill="#FFF7EB"/>
+          <text x="558" y="246" fill="#232F3E" font-size="14" font-weight="600" font-family="IBM Plex Sans">Bedrock Multi-Agent</text>
+          <text x="902" y="246" text-anchor="end" fill="#FF9900" font-size="9.5" font-weight="700" letter-spacing="0.16em" font-family="IBM Plex Mono">AMAZON BEDROCK</text>
+          <text x="558" y="282" fill="#475569" font-size="11" font-family="IBM Plex Mono">Supervisor → Specialist · ReAct per agent</text>
+
+          <!-- Supervisor / Router pill -->
+          <rect x="560" y="293" width="340" height="34" rx="5" fill="#FFF7EB" stroke="#FFB13D" stroke-width="1.2"/>
+          <text x="730" y="308" text-anchor="middle" fill="#0F172A" font-size="12" font-weight="600" font-family="IBM Plex Sans">Supervisor / Router</text>
+          <text x="730" y="322" text-anchor="middle" fill="#64748B" font-size="10" letter-spacing="0.04em" font-family="IBM Plex Mono">intent · slot extraction · agent routing</text>
+
+          <!-- Section label -->
+          <text x="560" y="346" fill="#94A3B8" font-size="9.5" letter-spacing="0.18em" font-weight="600" font-family="IBM Plex Mono">5 SPECIALIST AGENTS</text>
+
+          <!-- Agent rows: Discovery -->
+          <rect x="560" y="354" width="340" height="35" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="572" y="376" fill="#0F172A" font-size="12.5" font-weight="600" font-family="IBM Plex Sans">Discovery</text>
+          <text x="654" y="376" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">browse · model shortlist · SmartPath handoff ★</text>
+
+          <!-- Comparison -->
+          <rect x="560" y="392" width="340" height="35" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="572" y="414" fill="#0F172A" font-size="12.5" font-weight="600" font-family="IBM Plex Sans">Comparison</text>
+          <text x="664" y="414" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">spec tradeoffs · TCO · 2–3 models</text>
+
+          <!-- Finance -->
+          <rect x="560" y="430" width="340" height="35" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="572" y="452" fill="#0F172A" font-size="12.5" font-weight="600" font-family="IBM Plex Sans">Finance</text>
+          <text x="640" y="452" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">payments · lease vs buy · trade-in · incentives</text>
+
+          <!-- Owner -->
+          <rect x="560" y="468" width="340" height="35" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="572" y="490" fill="#0F172A" font-size="12.5" font-weight="600" font-family="IBM Plex Sans">Owner</text>
+          <text x="630" y="490" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">lease end · loyalty · upgrade path · history</text>
+
+          <!-- Service -->
+          <rect x="560" y="506" width="340" height="35" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="572" y="528" fill="#0F172A" font-size="12.5" font-weight="600" font-family="IBM Plex Sans">Service</text>
+          <text x="635" y="528" fill="#64748B" font-size="10.5" font-family="IBM Plex Sans">maintenance · recalls · service appointment</text>
+
+          <!-- Footer note -->
+          <text x="560" y="563" fill="#94A3B8" font-size="9.5" letter-spacing="0.10em" font-family="IBM Plex Mono">★ shared tool · MCP-served in Phase 2</text>
+          <text x="900" y="563" text-anchor="end" fill="#94A3B8" font-size="9.5" letter-spacing="0.14em" font-family="IBM Plex Mono">EMITS: CLOUDWATCH TRACES</text>
+          <text x="730" y="585" text-anchor="middle" fill="#64748B" font-size="10" font-style="italic" font-family="IBM Plex Sans">"Bedrock = the brain"</text>
+        </g>
+
+        <!-- C6: Snowflake -->
+        <g filter="url(#cardShadow)">
+          <rect x="970" y="270" width="220" height="300" rx="6" fill="#FFFFFF" stroke="#29B5E8" stroke-width="1.5"/>
+          <rect x="970" y="270" width="220" height="4" fill="#29B5E8" rx="2"/>
+          <!-- Snowflake glyph -->
+          <g transform="translate(987, 295)" stroke="#29B5E8" stroke-width="1.6" stroke-linecap="round" fill="none">
+            <line x1="7" y1="0" x2="7" y2="14"/>
+            <line x1="0" y1="7" x2="14" y2="7"/>
+            <line x1="2" y1="2" x2="12" y2="12"/>
+            <line x1="12" y1="2" x2="2" y2="12"/>
+          </g>
+          <text x="1010" y="307" fill="#0F172A" font-size="14" font-weight="600" font-family="IBM Plex Sans">Snowflake</text>
+          <text x="1180" y="307" text-anchor="end" fill="#29B5E8" font-size="9" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">DATA + RAG</text>
+          <text x="1080" y="324" text-anchor="middle" fill="#0369A1" font-size="10.5" font-style="italic" font-family="IBM Plex Sans">SQL for facts · RAG for language</text>
+          <line x1="985" y1="333" x2="1175" y2="333" stroke="#EEF1F5"/>
+
+          <!-- Cortex Analyst sub-card (NL→SQL path) -->
+          <rect x="985" y="343" width="190" height="100" rx="4" fill="#F0F9FF" stroke="#BAE6FD"/>
+          <text x="996" y="362" fill="#0F172A" font-size="11.5" font-weight="600" font-family="IBM Plex Sans">Cortex Analyst</text>
+          <rect x="1115" y="350" width="52" height="15" rx="3" fill="#0EA5E9"/>
+          <text x="1141" y="361" text-anchor="middle" fill="#FFFFFF" font-size="8.5" font-weight="700" letter-spacing="0.06em" font-family="IBM Plex Mono">NL → SQL</text>
+          <text x="1080" y="377" text-anchor="middle" fill="#475569" font-size="10" font-style="italic" font-family="IBM Plex Sans">what's available · what it costs</text>
+          <line x1="996" y1="385" x2="1164" y2="385" stroke="#BAE6FD"/>
+          <text x="1080" y="402" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">catalog · inventory</text>
+          <text x="1080" y="419" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">specs · pricing · incentives</text>
+          <text x="1080" y="436" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">vehicle history</text>
+
+          <!-- Cortex Search sub-card (RAG path) -->
+          <rect x="985" y="453" width="190" height="100" rx="4" fill="#F0F9FF" stroke="#BAE6FD"/>
+          <text x="996" y="472" fill="#0F172A" font-size="11.5" font-weight="600" font-family="IBM Plex Sans">Cortex Search</text>
+          <rect x="1135" y="460" width="32" height="15" rx="3" fill="#0EA5E9"/>
+          <text x="1151" y="471" text-anchor="middle" fill="#FFFFFF" font-size="8.5" font-weight="700" letter-spacing="0.10em" font-family="IBM Plex Mono">RAG</text>
+          <text x="1080" y="487" text-anchor="middle" fill="#475569" font-size="10" font-style="italic" font-family="IBM Plex Sans">what people say · what docs explain</text>
+          <line x1="996" y1="495" x2="1164" y2="495" stroke="#BAE6FD"/>
+          <text x="1080" y="512" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">reviews · brochures</text>
+          <text x="1080" y="529" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">FAQs · owner sentiment</text>
+          <text x="1080" y="546" text-anchor="middle" fill="#334155" font-size="11" font-family="IBM Plex Sans">qualitative Q&amp;A</text>
+        </g>
+
+        <!-- C7: Session Memory (composite) -->
+        <g filter="url(#cardShadow)">
+          <rect x="540" y="650" width="380" height="120" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="540" y="650" width="380" height="4" fill="#FF9900" rx="2"/>
+          <text x="558" y="682" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Session Memory</text>
+          <text x="902" y="682" text-anchor="end" fill="#FF9900" font-size="9.5" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">AWS</text>
+          <line x1="558" y1="694" x2="902" y2="694" stroke="#EEF1F5"/>
+          <rect x="558" y="708" width="170" height="50" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="643" y="729" text-anchor="middle" fill="#0F172A" font-size="11.5" font-weight="600" font-family="IBM Plex Sans">ElastiCache</text>
+          <text x="643" y="747" text-anchor="middle" fill="#64748B" font-size="10" font-family="IBM Plex Mono">guest · TTL conv state</text>
+          <rect x="738" y="708" width="170" height="50" rx="4" fill="#FFFCF7" stroke="#FEE9C7"/>
+          <text x="823" y="729" text-anchor="middle" fill="#0F172A" font-size="11.5" font-weight="600" font-family="IBM Plex Sans">DynamoDB</text>
+          <text x="823" y="747" text-anchor="middle" fill="#64748B" font-size="10" font-family="IBM Plex Mono">profile · prefs · history</text>
+        </g>
+
+        <!-- C8: Action Group Tools (Bedrock function-calling tools, Lambda-backed) -->
+        <g filter="url(#cardShadow)">
+          <rect x="970" y="650" width="220" height="120" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="970" y="650" width="220" height="4" fill="#FF9900" rx="2"/>
+          <text x="985" y="682" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Action Group Tools</text>
+          <text x="1180" y="682" text-anchor="end" fill="#FF9900" font-size="9" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">BEDROCK · LAMBDA</text>
+          <line x1="985" y1="694" x2="1175" y2="694" stroke="#EEF1F5"/>
+          <g font-family="IBM Plex Mono" font-size="10.5" fill="#475569">
+            <text x="985" y="715">▸ SmartPath URL builder ★</text>
+            <text x="985" y="733">▸ TCO / Lease calculator</text>
+            <text x="985" y="751">▸ Trade-in (KBB / Carfax)</text>
+          </g>
+          <text x="1080" y="765" text-anchor="middle" fill="#94A3B8" font-size="9" letter-spacing="0.10em" font-family="IBM Plex Mono">INVOKED VIA FUNCTION CALLING</text>
+        </g>
+
+        <!-- C9: Bedrock Guardrails -->
+        <g filter="url(#cardShadow)">
+          <rect x="540" y="820" width="380" height="100" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="540" y="820" width="380" height="4" fill="#FF9900" rx="2"/>
+          <text x="558" y="852" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Bedrock Guardrails</text>
+          <text x="902" y="852" text-anchor="end" fill="#FF9900" font-size="9.5" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">SAFETY</text>
+          <line x1="558" y1="864" x2="902" y2="864" stroke="#EEF1F5"/>
+          <text x="558" y="887" fill="#475569" font-size="11.5" font-family="IBM Plex Sans">Price · Spec · Scope rules · grounded-in-Snowflake check</text>
+          <text x="558" y="906" fill="#94A3B8" font-size="10.5" font-family="IBM Plex Mono">fallback: re-query · redirect to correct specialist</text>
+        </g>
+
+        <!-- C10: Response Generator -->
+        <g filter="url(#cardShadow)">
+          <rect x="540" y="970" width="380" height="148" rx="6" fill="#FFFFFF" stroke="#E2E8F0"/>
+          <rect x="540" y="970" width="380" height="4" fill="#FF9900" rx="2"/>
+          <text x="558" y="1002" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">Response Generator</text>
+          <text x="902" y="1002" text-anchor="end" fill="#FF9900" font-size="9.5" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">BEDROCK</text>
+          <line x1="558" y1="1014" x2="902" y2="1014" stroke="#EEF1F5"/>
+          <rect x="558" y="1024" width="138" height="22" rx="4" fill="#F1F5F9"/>
+          <text x="627" y="1039" text-anchor="middle" fill="#0F172A" font-size="11" font-weight="600" font-family="IBM Plex Mono">Claude 3.5 Sonnet</text>
+          <text x="558" y="1066" fill="#475569" font-size="11.5" font-family="IBM Plex Sans">Synthesizes Cortex facts + context · cited to source</text>
+          <text x="558" y="1085" fill="#475569" font-size="11.5" font-family="IBM Plex Sans">CTA: deep-link to SmartPath</text>
+          <text x="558" y="1106" fill="#94A3B8" font-size="10" letter-spacing="0.14em" font-family="IBM Plex Mono">STREAMING · STRUCTURED OUTPUTS</text>
+        </g>
+
+        <!-- C11: SmartPath -->
+        <g filter="url(#cardShadow)">
+          <rect x="1240" y="970" width="200" height="178" rx="6" fill="#FFFFFF" stroke="#00A862" stroke-width="1.5"/>
+          <rect x="1240" y="970" width="200" height="4" fill="#00A862" rx="2"/>
+          <text x="1255" y="1003" fill="#0F172A" font-size="13" font-weight="600" font-family="IBM Plex Sans">SmartPath</text>
+          <text x="1425" y="1003" text-anchor="end" fill="#00A862" font-size="9.5" font-weight="700" letter-spacing="0.14em" font-family="IBM Plex Mono">REUSED</text>
+          <line x1="1255" y1="1015" x2="1425" y2="1015" stroke="#EEF1F5"/>
+          <text x="1340" y="1042" text-anchor="middle" fill="#334155" font-size="12.5" font-weight="500" font-family="IBM Plex Sans">Configure</text>
+          <text x="1340" y="1062" text-anchor="middle" fill="#334155" font-size="12.5" font-weight="500" font-family="IBM Plex Sans">Price</text>
+          <text x="1340" y="1082" text-anchor="middle" fill="#334155" font-size="12.5" font-weight="500" font-family="IBM Plex Sans">Finance</text>
+          <text x="1340" y="1102" text-anchor="middle" fill="#334155" font-size="12.5" font-weight="500" font-family="IBM Plex Sans">Buy</text>
+          <rect x="1255" y="1118" width="170" height="20" rx="10" fill="#DCFCE7"/>
+          <text x="1340" y="1132" text-anchor="middle" fill="#14532D" font-size="9.5" font-weight="700" letter-spacing="0.10em" font-family="IBM Plex Mono">★ PRIMARY CONVERSION</text>
+        </g>
+
+        <!-- ============ CONNECTORS ============ -->
+        <!-- Shopper → Agentic Search Widget -->
+        <line x1="220" y1="340" x2="278" y2="340" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- toyota.com → Agentic Search Widget (down) -->
+        <line x1="380" y1="222" x2="380" y2="278" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- Agentic Search Widget ↔ Bedrock Agent (bidirectional pair) -->
+        <line x1="482" y1="320" x2="538" y2="320" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="538" y1="360" x2="482" y2="360" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- Toyota Auth → Supervisor (into agent at router) -->
+        <path d="M 480 490 H 530 V 310 H 538" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+        <!-- Toyota Auth → Session Memory (down + right) -->
+        <path d="M 380 562 V 660 H 538" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+        <!-- Bedrock Agent → Snowflake Cortex Analyst (SQL path) -->
+        <line x1="922" y1="393" x2="983" y2="393" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <rect x="928" y="381" width="36" height="16" rx="3" fill="#FFFFFF" stroke="#0EA5E9"/>
+        <text x="946" y="393" text-anchor="middle" fill="#0369A1" font-size="9" font-weight="700" font-family="IBM Plex Mono">SQL</text>
+
+        <!-- Bedrock Agent → Snowflake Cortex Search (RAG path) -->
+        <line x1="922" y1="503" x2="983" y2="503" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <rect x="928" y="491" width="36" height="16" rx="3" fill="#FFFFFF" stroke="#0EA5E9"/>
+        <text x="946" y="503" text-anchor="middle" fill="#0369A1" font-size="9" font-weight="700" font-family="IBM Plex Mono">RAG</text>
+
+        <!-- Bedrock Agent → Lambda Utilities (compute / build) -->
+        <path d="M 922 555 H 950 V 700 H 968" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+        <rect x="912" y="606" width="60" height="16" rx="3" fill="#FFFFFF" stroke="#CBD5E1"/>
+        <text x="942" y="618" text-anchor="middle" fill="#475569" font-size="9" font-weight="600" font-family="IBM Plex Mono">COMPUTE</text>
+
+        <!-- Bedrock Agent ↔ Session Memory (bidirectional, two parallel arrows) -->
+        <line x1="710" y1="602" x2="710" y2="648" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="750" y1="648" x2="750" y2="602" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- Session Memory → Guardrails (down) -->
+        <line x1="730" y1="772" x2="730" y2="818" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- Guardrails → Response Generator -->
+        <line x1="730" y1="922" x2="730" y2="968" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+        <!-- Response Generator → SmartPath (the conversion path) -->
+        <line x1="922" y1="1042" x2="1238" y2="1042" stroke="#00A862" stroke-width="2.2" marker-end="url(#arrowConv)"/>
+        <rect x="1010" y="1018" width="138" height="22" rx="4" fill="#FFFFFF" stroke="#00A862"/>
+        <text x="1079" y="1033" text-anchor="middle" fill="#00A862" font-size="10.5" font-weight="600" font-family="IBM Plex Mono">deep-link + params</text>
+
+        <!-- Section dividers (subtle horizontal guides for visual rhythm) -->
+        <line x1="40" y1="1180" x2="1460" y2="1180" stroke="#EEF1F5" stroke-dasharray="3 4"/>
+        <text x="60" y="1212" fill="#94A3B8" font-size="10" letter-spacing="0.16em" font-weight="600" font-family="IBM Plex Mono">FLOW</text>
+        <text x="60" y="1230" fill="#475569" font-size="11" font-family="IBM Plex Sans">
+          ① Shopper opens widget · ② Supervisor routes to specialist · ③ Specialist calls Cortex (SQL or RAG) + Action Groups · ④ Guardrails scope-check · ⑤ Claude synthesizes grounded answer + SmartPath link
+        </text>
+
+      </svg>
+    </div>
+
+    <div class="footer-grid">
+      <div class="panel handoff">
+        <div class="panel-label">SmartPath Handoff URL</div>
+        <div class="panel-content"><code>?model=rav4hybrid&trim=xle&drivetrain=awd&price_max=40000&zip=90210</code></div>
+      </div>
+      <div class="panel aws-panel">
+        <div class="panel-label">AWS Stack</div>
+        <div class="panel-content">Bedrock · Lambda · ElastiCache · DynamoDB · CloudWatch · WAF</div>
+      </div>
+      <div class="panel data-panel">
+        <div class="panel-label">Data Sources</div>
+        <div class="panel-content">Snowflake Cortex Analyst (SQL) · Cortex Search (RAG) · KBB / Carfax</div>
+      </div>
+      <div class="panel reuse-panel">
+        <div class="panel-label">Reused, Not Replaced</div>
+        <div class="panel-content">toyota.com · Toyota Auth · SmartPath</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
